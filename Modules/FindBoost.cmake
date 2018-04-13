@@ -402,6 +402,22 @@ function(_Boost_COMPILER_DUMPVERSION _OUTPUT_VERSION)
   set(${_OUTPUT_VERSION} ${_boost_COMPILER_VERSION} PARENT_SCOPE)
 endfunction()
 
+function(_Boost_CLANG_GETVERSION _OUTPUT_VERSION)
+
+  exec_program(${CMAKE_CXX_COMPILER}
+    ARGS ${CMAKE_CXX_COMPILER_ARG1} --version
+    OUTPUT_VARIABLE _boost_COMPILER_VERSION
+  )
+
+  string(REGEX MATCH "([0-9]*\\.[0-9]*)"
+    _boost_COMPILER_VERSION ${_boost_COMPILER_VERSION})
+
+  string(REGEX REPLACE "([0-9])\\.([0-9])(\\.[0-9])?" "\\1\\2"
+    _boost_COMPILER_VERSION ${_boost_COMPILER_VERSION})
+
+  set(${_OUTPUT_VERSION} ${_boost_COMPILER_VERSION} PARENT_SCOPE)
+endfunction()
+
 #
 # Take a list of libraries with "thread" in it
 # and prepend duplicates with "thread_${Boost_THREADAPI}"
@@ -480,11 +496,20 @@ function(_Boost_GUESS_COMPILER_PREFIX _ret)
       set(_boost_COMPILER "-mgw${_boost_COMPILER_VERSION}")
     endif()
   elseif (UNIX)
-    if (CMAKE_COMPILER_IS_GNUCXX)
-      if(${Boost_MAJOR_VERSION}.${Boost_MINOR_VERSION} VERSION_LESS 1.34)
-        set(_boost_COMPILER "-gcc") # no GCC version encoding prior to 1.34
+    if (CMAKE_COMPILER_IS_GNUCXX OR ${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang")
+      if (${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang")
+        set(_boost_COMPILER_TAG "-clang")
       else()
-        _Boost_COMPILER_DUMPVERSION(_boost_COMPILER_VERSION)
+        set(_boost_COMPILER_TAG "-gcc")
+      endif()
+      if(${Boost_MAJOR_VERSION}.${Boost_MINOR_VERSION} VERSION_LESS 1.34)
+        set(_boost_COMPILER _boost_COMPILER_TAG) # no GCC version encoding prior to 1.34
+      else()
+        if (${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang")
+          _Boost_CLANG_GETVERSION(_boost_COMPILER_VERSION)
+        else()
+          _Boost_COMPILER_DUMPVERSION(_boost_COMPILER_VERSION)
+        endif()
         # Determine which version of GCC we have.
         if(APPLE)
           if(Boost_MINOR_VERSION)
@@ -503,7 +528,7 @@ function(_Boost_GUESS_COMPILER_PREFIX _ret)
             set(_boost_COMPILER "")
           endif()
         else()
-          set(_boost_COMPILER "-gcc${_boost_COMPILER_VERSION}")
+          set(_boost_COMPILER "${_boost_COMPILER_TAG}${_boost_COMPILER_VERSION}")
         endif()
       endif()
     endif ()
@@ -1430,28 +1455,11 @@ endif()
 #  -x86     Architecture and address model tag
 #           First character is the architecture, then word-size, either 32 or 64
 #           Only used in 'versioned' layout, added in Boost 1.66.0
-set(_boost_ARCHITECTURE_TAG "")
-# {CMAKE_CXX_COMPILER_ARCHITECTURE_ID} is not currently set for all compilers
-if(NOT "x${CMAKE_CXX_COMPILER_ARCHITECTURE_ID}" STREQUAL "x" AND NOT Boost_VERSION VERSION_LESS 106600)
-  string(APPEND _boost_ARCHITECTURE_TAG "-")
-  # This needs to be kept in-sync with the section of CMakePlatformId.h.in
-  # inside 'defined(_WIN32) && defined(_MSC_VER)'
-  if(${CMAKE_CXX_COMPILER_ARCHITECTURE_ID} STREQUAL "IA64")
-    string(APPEND _boost_ARCHITECTURE_TAG "i")
-  elseif(${CMAKE_CXX_COMPILER_ARCHITECTURE_ID} STREQUAL "X86"
-            OR ${CMAKE_CXX_COMPILER_ARCHITECTURE_ID} STREQUAL "x64")
-    string(APPEND _boost_ARCHITECTURE_TAG "x")
-  elseif(${CMAKE_CXX_COMPILER_ARCHITECTURE_ID} MATCHES "^ARM")
-    string(APPEND _boost_ARCHITECTURE_TAG "a")
-  elseif(${CMAKE_CXX_COMPILER_ARCHITECTURE_ID} STREQUAL "MIPS")
-    string(APPEND _boost_ARCHITECTURE_TAG "m")
-  endif()
-
-  if(CMAKE_SIZEOF_VOID_P EQUAL 8)
-    string(APPEND _boost_ARCHITECTURE_TAG "64")
-  else()
-    string(APPEND _boost_ARCHITECTURE_TAG "32")
-  endif()
+set(_boost_ARCHITECTURE_TAG "-x")
+if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+  string(APPEND _boost_ARCHITECTURE_TAG "64")
+else()
+  string(APPEND _boost_ARCHITECTURE_TAG "32")
 endif()
 
 if(Boost_DEBUG)

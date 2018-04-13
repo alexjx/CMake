@@ -33,8 +33,8 @@ if(NOT "x${CMAKE_CXX_SIMULATE_ID}" STREQUAL "xMSVC")
   endif()
 
   if (NOT CMAKE_CXX_COMPILER_VERSION VERSION_LESS 3.5)
-    set(CMAKE_CXX17_STANDARD_COMPILE_OPTION "-std=c++1z")
-    set(CMAKE_CXX17_EXTENSION_COMPILE_OPTION "-std=gnu++1z")
+    set(CMAKE_CXX17_STANDARD_COMPILE_OPTION "-std=c++17")
+    set(CMAKE_CXX17_EXTENSION_COMPILE_OPTION "-std=gnu++17")
   endif()
 else()
   # clang-cl does not know these options because it behaves like cl.exe
